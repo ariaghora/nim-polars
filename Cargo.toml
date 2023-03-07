@@ -1,0 +1,14 @@
+[package]
+name = "nim_polars"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Aria Ghora Prabono <hello@ghora.net>"]
+
+[lib]
+crate-type   = ["cdylib"]
+path = "rust_src/lib.rs"
+
+[dependencies]
+polars = "0.27.2"
+polars-core = "0.27.2"
