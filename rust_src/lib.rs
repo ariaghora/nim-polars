@@ -1,5 +1,6 @@
 use polars::prelude::*;
-use std::ffi::{c_char, CStr, CString};
+use std::alloc::{dealloc, Layout};
+use std::ffi::{c_char, c_int, CStr, CString};
 use std::fmt::{Display, Formatter, Result};
 use std::ptr::{self, drop_in_place};
 
@@ -18,6 +19,26 @@ impl Display for RsDataFrame {
 
 fn _read_csv(path: &str) -> PolarsResult<DataFrame> {
     CsvReader::from_path(path)?.finish()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rs_columns(
+    df: *mut DataFrame,
+    names: *const *const c_char,
+    len: c_int,
+) -> *mut RsDataFrame {
+    let df = &*df;
+    let names = unsafe { std::slice::from_raw_parts(names, c_int::try_into(len).unwrap()) };
+
+    let rust_strings: Vec<String> = names
+        .iter()
+        .map(|&s| unsafe { CStr::from_ptr(s) })
+        .map(|cs| cs.to_str().unwrap().to_string())
+        .collect();
+
+    let res = df.select(rust_strings).unwrap();
+    let boxed = Box::new(RsDataFrame(res));
+    Box::into_raw(boxed)
 }
 
 #[no_mangle]
@@ -55,6 +76,6 @@ pub unsafe extern "C" fn rs_dataframe_to_str(df: *mut DataFrame) -> *mut c_char 
 #[no_mangle]
 #[allow(unused)]
 pub unsafe extern "C" fn rs_free_dataframe(df: *mut DataFrame) {
-    // Box::from(df);
     drop_in_place(df);
+    dealloc(df as *mut u8, Layout::new::<DataFrame>());
 }

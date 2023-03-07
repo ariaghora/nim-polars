@@ -3,6 +3,7 @@ import unittest
 import nim_polars
 
 test "functions not nil":
+  check not isNil(nim_polars.rs_columns)
   check not isNil(nim_polars.rs_dataframe_to_str)
   check not isNil(nim_polars.rs_series_to_str)
   check not isNil(nim_polars.readCsv)
