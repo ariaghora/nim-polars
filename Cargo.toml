@@ -12,3 +12,4 @@ path = "rust_src/lib.rs"
 [dependencies]
 polars = "0.27.2"
 polars-core = "0.27.2"
+polars-lazy = "0.27.2"
