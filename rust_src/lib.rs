@@ -4,6 +4,8 @@ use std::ffi::{c_char, c_int, CStr, CString};
 use std::fmt::{Display, Formatter, Result};
 use std::ptr::{self, drop_in_place};
 
+/// Following two structs are just a wrapper to implement custom
+/// traits
 pub struct RsSeries(Series);
 impl Display for RsSeries {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
@@ -22,7 +24,7 @@ fn _read_csv(path: &str) -> PolarsResult<DataFrame> {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rs_columns(
+pub unsafe extern "C" fn columns(
     df: *mut DataFrame,
     names: *const *const c_char,
     len: c_int,
@@ -42,7 +44,7 @@ pub unsafe extern "C" fn rs_columns(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rs_read_csv(path: *const i8) -> *mut RsDataFrame {
+pub unsafe extern "C" fn read_csv(path: *const i8) -> *mut RsDataFrame {
     let path_str = match CStr::from_ptr(path).to_str() {
         Ok(p) => p,
         Err(_) => {
@@ -61,13 +63,13 @@ pub unsafe extern "C" fn rs_read_csv(path: *const i8) -> *mut RsDataFrame {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rs_series_to_str(df: *mut Series) -> *mut c_char {
+pub unsafe extern "C" fn series_to_str(df: *mut Series) -> *mut c_char {
     let df = &*df;
     CString::new(df.to_string()).unwrap().into_raw()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn rs_dataframe_to_str(df: *mut DataFrame) -> *mut c_char {
+pub unsafe extern "C" fn dataframe_to_str(df: *mut DataFrame) -> *mut c_char {
     let df = &*df;
 
     CString::new(df.to_string()).unwrap().into_raw()
@@ -75,7 +77,7 @@ pub unsafe extern "C" fn rs_dataframe_to_str(df: *mut DataFrame) -> *mut c_char 
 
 #[no_mangle]
 #[allow(unused)]
-pub unsafe extern "C" fn rs_free_dataframe(df: *mut DataFrame) {
+pub unsafe extern "C" fn free_dataframe(df: *mut DataFrame) {
     drop_in_place(df);
     dealloc(df as *mut u8, Layout::new::<DataFrame>());
 }
