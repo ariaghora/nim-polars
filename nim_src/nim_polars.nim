@@ -40,9 +40,6 @@ type
 proc `=destroy`(x: var DataFrame) =
   rs_free_dataframe(x.rsData)
 
-# proc `=destroy`(x: var LazyFrame) =
-#   rs_free_lazyframe(x.rsData)
-
 method `$`*(df: DataFrame): string {.base.}=
   let x = rs_dataframe_to_str(df.rsData)
   return &"{x}"

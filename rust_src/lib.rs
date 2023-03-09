@@ -1,4 +1,5 @@
 use polars::prelude::*;
+use polars_lazy::dsl::sum;
 use polars_lazy::prelude::*;
 use std::alloc::{dealloc, Layout};
 use std::borrow::Borrow;
@@ -17,15 +18,19 @@ impl Display for RsSeries {
 
 #[derive(Clone)]
 pub struct RsDataFrame {
-    df: RefCell<DataFrame>,
+    data: RefCell<DataFrame>,
 }
+
 impl Display for RsDataFrame {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{}", self.df.borrow())
+        write!(f, "{}", self.data.borrow().to_string())
     }
 }
 
-pub struct RsLazyFrame(LazyFrame);
+pub struct RsLazyFrame {
+    data: LazyFrame,
+}
+
 impl Display for RsLazyFrame {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{}", "<LazyFrame>")
@@ -41,7 +46,7 @@ pub unsafe extern "C" fn collect(lf: *mut LazyFrame) -> *mut RsDataFrame {
     let lf = Box::from_raw(lf).clone();
     match lf.collect() {
         Ok(df) => Box::into_raw(Box::new(RsDataFrame {
-            df: RefCell::new(df),
+            data: RefCell::new(df),
         })),
         Err(_) => ptr::null_mut(),
     }
@@ -53,7 +58,7 @@ pub unsafe extern "C" fn columns(
     names: *const *const c_char,
     len: c_int,
 ) -> *mut RsDataFrame {
-    let df = &*(&*df).df.borrow();
+    let df = &*(&*df).data.borrow();
     let names = unsafe { std::slice::from_raw_parts(names, c_int::try_into(len).unwrap()) };
 
     let rust_strings: Vec<String> = names
@@ -64,7 +69,7 @@ pub unsafe extern "C" fn columns(
 
     let res = df.borrow().select(rust_strings).unwrap();
     let boxed = Box::new(RsDataFrame {
-        df: RefCell::new(res),
+        data: RefCell::new(res),
     });
     Box::into_raw(boxed)
 }
@@ -72,12 +77,12 @@ pub unsafe extern "C" fn columns(
 #[no_mangle]
 pub unsafe extern "C" fn read_csv(path: *const i8) -> *mut RsDataFrame {
     let path_str = cstr_to_str(path);
-
     let reader = CsvReader::from_path(path_str);
+
     return match reader {
         Ok(r) => match r.finish() {
             Ok(df) => Box::into_raw(Box::new(RsDataFrame {
-                df: RefCell::new(df),
+                data: RefCell::new(df),
             })),
             Err(_) => ptr::null_mut(),
         },
@@ -89,7 +94,7 @@ pub unsafe extern "C" fn read_csv(path: *const i8) -> *mut RsDataFrame {
 pub unsafe extern "C" fn scan_csv(path: *const i8) -> *mut RsLazyFrame {
     match LazyCsvReader::new(cstr_to_str(path)).finish() {
         Ok(lf) => {
-            return Box::into_raw(Box::new(RsLazyFrame(lf)));
+            return Box::into_raw(Box::new(RsLazyFrame { data: lf }));
         }
         Err(_) => return ptr::null_mut(),
     }
@@ -97,23 +102,24 @@ pub unsafe extern "C" fn scan_csv(path: *const i8) -> *mut RsLazyFrame {
 
 #[no_mangle]
 pub unsafe extern "C" fn series_to_str(s: *mut Series) -> *mut c_char {
-    let df = &*s;
-    CString::new(df.to_string()).unwrap().into_raw()
+    let s = &*s;
+    CString::new(s.to_string()).unwrap().into_raw()
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn dataframe_to_str(df: *mut RsDataFrame) -> *mut c_char {
-    let df = &*(&*df).df.borrow();
+    let df = &*(&*df).data.borrow();
     CString::new(df.to_string()).unwrap().into_raw()
-    // CString::new("ASDASD").unwrap().into_raw()
 }
 
 #[no_mangle]
+#[allow(unused)]
 pub unsafe extern "C" fn free_dataframe(df: *mut RsDataFrame) {
-    dealloc(df as *mut u8, Layout::new::<RsDataFrame>());
+    Box::from_raw(df);
 }
 
 #[no_mangle]
+#[allow(unused)]
 pub unsafe extern "C" fn free_lazyframe(lf: *mut RsLazyFrame) {
-    dealloc(lf as *mut u8, Layout::new::<RsLazyFrame>());
+    Box::from_raw(lf);
 }
