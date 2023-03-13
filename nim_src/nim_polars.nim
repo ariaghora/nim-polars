@@ -3,9 +3,9 @@ import strformat
 ## The low-level binding to Polars structs. Since we don't care about its
 ## internal structure, we can simply use a raw pointer to the structs.
 type
-  RsSeries* =  ref object
-  RsDataFrame* =  ref object
-  RsLazyFrame* =  ref object
+  RsSeries* = ptr object
+  RsDataFrame* = ptr object
+  RsLazyFrame* = ptr object
 
 const dynLibPath = 
   when defined macosx: "libnim_polars.dylib" 
@@ -42,12 +42,6 @@ type
     rsData*: RsDataFrame
   LazyFrame* = object 
     rsData*: RsLazyFrame
-
-proc `=destroy`(x: var DataFrame) =
-  rs_free_dataframe(x.rsData)
-
-proc `=destroy`(x: var Series) =
-  rs_free_series(x.rsData)
 
 method `$`*(df: DataFrame): string {.base.}=
   let x = rs_dataframe_to_str(df.rsData)

@@ -1,2 +1,3 @@
+*.DS_Store
 /target
 /tests/test_nim_polars
