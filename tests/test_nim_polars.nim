@@ -19,3 +19,5 @@ test "csv scan":
 
   let df = lf.collect()
   check not df.rsData.isNil()
+  let a = df.columns("a")
+  check not a.rsData.isNil()

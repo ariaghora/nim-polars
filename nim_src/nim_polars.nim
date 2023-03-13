@@ -7,12 +7,18 @@ type
   RsDataFrame* =  ref object
   RsLazyFrame* =  ref object
 
-const dynLibPath = "libnim_polars.dylib" 
+const dynLibPath = 
+  when defined macosx: "libnim_polars.dylib" 
+  elif defined linux: "libnim_polars.so" 
+  elif defined windows: "libnim_polars.dll" 
+  else: raise newException(Exception, "libnim_polars shared library is not found or platform is unsupported")
+
 proc rs_collect*(lf: RsLazyFrame): RsDataFrame {.cdecl, importc: "collect", dynlib: dynLibPath .}
 proc rs_columns*(df: RsDataFrame, names: openArray[cstring], len:cint): RsDataFrame {.cdecl, importc: "columns", dynlib: dynLibPath .}
 proc rs_dataframe_to_str*(df: RsDataFrame): cstring {.cdecl, importc: "dataframe_to_str", dynlib: dynLibPath .}
 proc rs_free_dataframe*(df: RsDataFrame) {.cdecl, importc: "free_dataframe", dynlib: dynLibPath .}
 proc rs_free_lazyframe*(df: RsLazyFrame) {.cdecl, importc: "free_lazyframe", dynlib: dynLibPath .}
+proc rs_free_series*(df: RsSeries) {.cdecl, importc: "free_series", dynlib: dynLibPath .}
 proc rs_read_csv*(path: cstring): RsDataFrame {.cdecl, importc: "read_csv", dynlib: dynLibPath .}
 proc rs_scan_csv*(path: cstring): RsLazyFrame {.cdecl, importc: "scan_csv", dynlib: dynLibPath .}
 proc rs_series_to_str*(df: RsSeries): cstring {.cdecl, importc: "series_to_str", dynlib: dynLibPath .}
@@ -39,6 +45,9 @@ type
 
 proc `=destroy`(x: var DataFrame) =
   rs_free_dataframe(x.rsData)
+
+proc `=destroy`(x: var Series) =
+  rs_free_series(x.rsData)
 
 method `$`*(df: DataFrame): string {.base.}=
   let x = rs_dataframe_to_str(df.rsData)

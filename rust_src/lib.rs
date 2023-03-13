@@ -1,7 +1,5 @@
 use polars::prelude::*;
-use polars_lazy::dsl::sum;
 use polars_lazy::prelude::*;
-use std::alloc::{dealloc, Layout};
 use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::ffi::{c_char, c_int, CStr, CString};
@@ -9,10 +7,13 @@ use std::fmt::{Display, Formatter, Result};
 use std::ptr;
 
 /// Following  structs are just a wrapper to implement custom traits
-pub struct RsSeries(Series);
+pub struct RsSeries {
+    data: Series
+}
+
 impl Display for RsSeries {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.data.borrow().to_string())
     }
 }
 
@@ -27,6 +28,7 @@ impl Display for RsDataFrame {
     }
 }
 
+#[derive(Clone)]
 pub struct RsLazyFrame {
     data: LazyFrame,
 }
@@ -37,7 +39,7 @@ impl Display for RsLazyFrame {
     }
 }
 
-unsafe fn cstr_to_str<'a>(s: *const i8) -> &'a str {
+unsafe fn cstr_to_str<'a>(s: *const c_char) -> &'a str {
     CStr::from_ptr(s).to_str().unwrap()
 }
 
@@ -75,7 +77,7 @@ pub unsafe extern "C" fn columns(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn read_csv(path: *const i8) -> *mut RsDataFrame {
+pub unsafe extern "C" fn read_csv(path: *const c_char) -> *mut RsDataFrame {
     let path_str = cstr_to_str(path);
     let reader = CsvReader::from_path(path_str);
 
@@ -91,18 +93,16 @@ pub unsafe extern "C" fn read_csv(path: *const i8) -> *mut RsDataFrame {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn scan_csv(path: *const i8) -> *mut RsLazyFrame {
+pub unsafe extern "C" fn scan_csv(path: *const c_char) -> *mut RsLazyFrame {
     match LazyCsvReader::new(cstr_to_str(path)).finish() {
-        Ok(lf) => {
-            return Box::into_raw(Box::new(RsLazyFrame { data: lf }));
-        }
-        Err(_) => return ptr::null_mut(),
+        Ok(lf) => Box::into_raw(Box::new(RsLazyFrame { data: lf })),
+        Err(_) => ptr::null_mut(),
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn series_to_str(s: *mut Series) -> *mut c_char {
-    let s = &*s;
+pub unsafe extern "C" fn series_to_str(s: *mut RsSeries) -> *mut c_char {
+    let s = &*(&*s).data.borrow();
     CString::new(s.to_string()).unwrap().into_raw()
 }
 
@@ -115,11 +115,12 @@ pub unsafe extern "C" fn dataframe_to_str(df: *mut RsDataFrame) -> *mut c_char {
 #[no_mangle]
 #[allow(unused)]
 pub unsafe extern "C" fn free_dataframe(df: *mut RsDataFrame) {
-    Box::from_raw(df);
+    let df = Box::from_raw(df);
+    drop(df.data.borrow_mut());
 }
 
 #[no_mangle]
 #[allow(unused)]
 pub unsafe extern "C" fn free_lazyframe(lf: *mut RsLazyFrame) {
-    Box::from_raw(lf);
+    let x = Box::from_raw(lf).data;
 }

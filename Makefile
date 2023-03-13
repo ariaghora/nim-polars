@@ -1,7 +1,7 @@
 OUT=target/release/libnim_polars.dylib
 LIBDIR=/usr/local/lib/
 
-all: ${OUT}
+all: 
 	@cargo build -r
 
 install:
