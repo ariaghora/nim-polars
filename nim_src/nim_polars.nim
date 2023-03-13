@@ -16,9 +16,8 @@ const dynLibPath =
 proc rs_collect*(lf: RsLazyFrame): RsDataFrame {.cdecl, importc: "collect", dynlib: dynLibPath .}
 proc rs_columns*(df: RsDataFrame, names: openArray[cstring], len:cint): RsDataFrame {.cdecl, importc: "columns", dynlib: dynLibPath .}
 proc rs_dataframe_to_str*(df: RsDataFrame): cstring {.cdecl, importc: "dataframe_to_str", dynlib: dynLibPath .}
-proc rs_free_dataframe*(df: RsDataFrame) {.cdecl, importc: "free_dataframe", dynlib: dynLibPath .}
-proc rs_free_lazyframe*(df: RsLazyFrame) {.cdecl, importc: "free_lazyframe", dynlib: dynLibPath .}
 proc rs_free_series*(df: RsSeries) {.cdecl, importc: "free_series", dynlib: dynLibPath .}
+proc rs_head*(df: RsDataFrame, length: uint): RsDataFrame {.cdecl, importc: "head", dynlib: dynLibPath .}
 proc rs_read_csv*(path: cstring): RsDataFrame {.cdecl, importc: "read_csv", dynlib: dynLibPath .}
 proc rs_scan_csv*(path: cstring): RsLazyFrame {.cdecl, importc: "scan_csv", dynlib: dynLibPath .}
 proc rs_series_to_str*(df: RsSeries): cstring {.cdecl, importc: "series_to_str", dynlib: dynLibPath .}
@@ -62,6 +61,11 @@ proc columns*(df: DataFrame, names: varargs[string]): DataFrame =
 
   return DataFrame(
     rsData:rs_columns(df.rsData, colNames, cint(len(colNames)))
+  )
+
+proc head*(df: DataFrame, length: uint = 5): DataFrame = 
+  return DataFrame(
+    rsData: rs_head(df.rsData, length)
   )
 
 ## Misc

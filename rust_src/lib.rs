@@ -8,7 +8,7 @@ use std::ptr;
 
 /// Following  structs are just a wrapper to implement custom traits
 pub struct RsSeries {
-    data: Series
+    data: Series,
 }
 
 impl Display for RsSeries {
@@ -19,7 +19,7 @@ impl Display for RsSeries {
 
 #[derive(Clone)]
 pub struct RsDataFrame {
-    data: RefCell<DataFrame>,
+    data: DataFrame,
 }
 
 impl Display for RsDataFrame {
@@ -47,9 +47,7 @@ unsafe fn cstr_to_str<'a>(s: *const c_char) -> &'a str {
 pub unsafe extern "C" fn collect(lf: *mut LazyFrame) -> *mut RsDataFrame {
     let lf = Box::from_raw(lf).clone();
     match lf.collect() {
-        Ok(df) => Box::into_raw(Box::new(RsDataFrame {
-            data: RefCell::new(df),
-        })),
+        Ok(df) => Box::into_raw(Box::new(RsDataFrame { data: df })),
         Err(_) => ptr::null_mut(),
     }
 }
@@ -70,9 +68,7 @@ pub unsafe extern "C" fn columns(
         .collect();
 
     let res = df.borrow().select(rust_strings).unwrap();
-    let boxed = Box::new(RsDataFrame {
-        data: RefCell::new(res),
-    });
+    let boxed = Box::new(RsDataFrame { data: res });
     Box::into_raw(boxed)
 }
 
@@ -83,9 +79,7 @@ pub unsafe extern "C" fn read_csv(path: *const c_char) -> *mut RsDataFrame {
 
     return match reader {
         Ok(r) => match r.finish() {
-            Ok(df) => Box::into_raw(Box::new(RsDataFrame {
-                data: RefCell::new(df),
-            })),
+            Ok(df) => Box::into_raw(Box::new(RsDataFrame { data: df })),
             Err(_) => ptr::null_mut(),
         },
         Err(_) => ptr::null_mut(),
@@ -113,14 +107,9 @@ pub unsafe extern "C" fn dataframe_to_str(df: *mut RsDataFrame) -> *mut c_char {
 }
 
 #[no_mangle]
-#[allow(unused)]
-pub unsafe extern "C" fn free_dataframe(df: *mut RsDataFrame) {
-    let df = Box::from_raw(df);
-    drop(df.data.borrow_mut());
-}
-
-#[no_mangle]
-#[allow(unused)]
-pub unsafe extern "C" fn free_lazyframe(lf: *mut RsLazyFrame) {
-    let x = Box::from_raw(lf).data;
+pub unsafe extern "C" fn head(df: *mut RsDataFrame, length: usize) -> *mut RsDataFrame {
+    let df = &*(&*df).data.borrow();
+    Box::into_raw(Box::new(RsDataFrame {
+        data: df.head(Some(length)),
+    }))
 }
