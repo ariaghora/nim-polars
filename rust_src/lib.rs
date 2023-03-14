@@ -1,7 +1,6 @@
 use polars::prelude::*;
 use polars_lazy::prelude::*;
 use std::borrow::Borrow;
-use std::cell::RefCell;
 use std::ffi::{c_char, c_int, CStr, CString};
 use std::fmt::{Display, Formatter, Result};
 use std::ptr;
@@ -28,7 +27,6 @@ impl Display for RsDataFrame {
     }
 }
 
-#[derive(Clone)]
 pub struct RsLazyFrame {
     data: LazyFrame,
 }
@@ -73,6 +71,42 @@ pub unsafe extern "C" fn columns(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn head(df: *mut RsDataFrame, length: usize) -> *mut RsDataFrame {
+    let df = &*(&*df).data.borrow();
+    Box::into_raw(Box::new(RsDataFrame {
+        data: df.head(Some(length)),
+    }))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sort_by(
+    df: *mut RsDataFrame,
+    names: *const *const c_char,
+    len_names: c_int,
+    reverse: *const c_int,
+    len_reverse: c_int,
+) -> *mut RsDataFrame {
+    let df = &*(&*df).data.borrow();
+
+    let names = unsafe { std::slice::from_raw_parts(names, c_int::try_into(len_names).unwrap()) };
+    let rust_strings: Vec<String> = names
+        .iter()
+        .map(|&s| unsafe { CStr::from_ptr(s) })
+        .map(|cs| cs.to_str().unwrap().to_string())
+        .collect();
+    println!("{:?}", rust_strings);
+
+    let reverse =
+        unsafe { std::slice::from_raw_parts(reverse, c_int::try_into(len_reverse).unwrap()) };
+
+    let rust_bool: Vec<bool> = reverse.iter().map(|i| *i != 0).collect();
+    println!("{:?}", rust_bool);
+
+    let sorted = df.sort(rust_strings, rust_bool).unwrap();
+    Box::into_raw(Box::new(RsDataFrame { data: sorted }))
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn read_csv(path: *const c_char) -> *mut RsDataFrame {
     let path_str = cstr_to_str(path);
     let reader = CsvReader::from_path(path_str);
@@ -104,12 +138,4 @@ pub unsafe extern "C" fn series_to_str(s: *mut RsSeries) -> *mut c_char {
 pub unsafe extern "C" fn dataframe_to_str(df: *mut RsDataFrame) -> *mut c_char {
     let df = &*(&*df).data.borrow();
     CString::new(df.to_string()).unwrap().into_raw()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn head(df: *mut RsDataFrame, length: usize) -> *mut RsDataFrame {
-    let df = &*(&*df).data.borrow();
-    Box::into_raw(Box::new(RsDataFrame {
-        data: df.head(Some(length)),
-    }))
 }
