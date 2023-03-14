@@ -13,10 +13,29 @@ But what works for me (and tested on my macOS M1 aarch64):
 - Run `make`
 - Run `sudo make install`
 
-## Getting started
+## Example
 
 ```nim
+import nim_polars as pl
+
 when isMainModule:
-    let df = readCsv("dataset.csv")
-    echo(df.columns("col1", "col3"))
+  let df1 = pl.readCsv("titanic.csv")
+  echo df1
+
+  let df2 = df1
+    .columns("Name", "Fare", "Cabin", "Embarked", "Survived")
+    .sortBy(names = @["Embarked", "Name"], reverse = @[false, true])
+    .head(40)
+
+  echo df2
 ```
+
+## API
+
+### `DataFrame`
+
+`columns`, `head`, `sortBy`
+
+### `LazyFrame`
+
+`scanCsv`, `collect`
