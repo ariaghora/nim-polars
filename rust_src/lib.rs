@@ -94,13 +94,11 @@ pub unsafe extern "C" fn sort_by(
         .map(|&s| unsafe { CStr::from_ptr(s) })
         .map(|cs| cs.to_str().unwrap().to_string())
         .collect();
-    println!("{:?}", rust_strings);
 
     let reverse =
         unsafe { std::slice::from_raw_parts(reverse, c_int::try_into(len_reverse).unwrap()) };
 
     let rust_bool: Vec<bool> = reverse.iter().map(|i| *i != 0).collect();
-    println!("{:?}", rust_bool);
 
     let sorted = df.sort(rust_strings, rust_bool).unwrap();
     Box::into_raw(Box::new(RsDataFrame { data: sorted }))
